@@ -1,0 +1,9 @@
+#+title: org-roam-hyperedge
+
+This package extends Org-roam by introducing named relations and three-way links (/hyperedges/). It is designed to integrate seamlessly with Org-roam, providing a way to represent more expressive and context-rich relationships between concepts. The goal is to leverage the additional context for more powerful querying.
+
+* Motivation
+Named relations or /hyperedges/ in a personal knowledge management system like Org-roam allow you to represent complex, contextual links between concepts. Instead of simply connecting two notes, a hyperedge links three: for example, connecting ~Quantum Mechanics~ and ~General Relativity~ via the concept of ~Unification~. This captures not just that two ideas are related, but how. This Package attempts to make your knowledge graph more expressive and queryable.
+
+* Usage
+  You can simply insert a /hyperedge/ using the Command =org-roam-he-insert=. It will prompt for ~Node A~, ~Relation~ and ~Node B~. I

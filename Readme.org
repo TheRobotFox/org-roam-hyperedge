@@ -5,5 +5,14 @@ This package extends Org-roam by introducing named relations and three-way links
 * Motivation
 Named relations or /hyperedges/ in a personal knowledge management system like Org-roam allow you to represent complex, contextual links between concepts. Instead of simply connecting two notes, a hyperedge links three: for example, connecting ~Quantum Mechanics~ and ~General Relativity~ via the concept of ~Unification~. This captures not just that two ideas are related, but how. This Package attempts to make your knowledge graph more expressive and queryable.
 
-* Usage
-  You can simply insert a /hyperedge/ using the Command =org-roam-he-insert=. It will prompt for ~Node A~, ~Relation~ and ~Node B~. I
+* Quick Guide
+  You can simply insert a /hyperedge/ using the Command =org-roam-he-insert=. It will prompt for ~Node A~, ~Relation~ and ~Node B~ and for a ~Description~. Once complete it will insert a org-link at point. When you click it you'll be ask which end of the link (excluding current node) you want to visit.
+  org-roam-hyperedge processes everytime it processes normal links, that is  when =org-roam-db-sync= is run or you save with =org-roam-db-autosync-mode= enabled.
+  Stored /hyperedges/ can be queried from the roam database in the ~hyper-edges~
+table.
+
+Currently this package supports a basic yet powerful queuing function called =org-roam-he-find-oriented=, it will prompt you for ~Node A~, ~Relation~ and ~Node B~ again but you can skip any prompt by leaving it empty (or selecting smth invalid) this means =org-roam-he-find-oriented= will not filter on this field. Once the prompt is complete the function will query the org-roam database and find all /hyperedges/ which match the selection. The user will then be able to select a specific /hyperedge/ from a narrowed list.
+
+If for example you'd want to find all ~Isomorphism~ s in your knowledge graph, you can run =org-roam-he-find-oriented= and leave ~Node A~ and ~Node B~ empty and select ~Isomorphism~ as ~Relation~. Org-roam-hyperedge will then display all isomorphisms defined in your notes and you'll be able to visit each corresponding object.
+
+If you'd want to know in which ways ~Object A~ and ~Object B~ are related use =org-roam-he-find-oriented= and select ~Node A~ as ~Object A~ and ~Node B~ as ~Object B~. Since this function respects the orientation of /hyperedges/ ex. \((A,R,B)\neq(B,R,A)\), depending on your setup you might not get all /hyperedges/ you are looking for. *orientation agnostic find will be implemented soon* so dont worry, you can already start upgrading your knowledge graph now.

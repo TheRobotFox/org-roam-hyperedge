@@ -32,25 +32,14 @@
 ;;
 ;;; Code:
 
-(require 'org-roam-db)
+(require 'org-element-ast)
+(require 'dash)
 (require 'ol)
 
-
-;; Insert Hyper-Edge Schema
-(add-to-list 'org-roam-db--table-schemata
-	     '(hyper-edges
-	       ([(pos :not-null)
-		 (source-idx :not-null)
-		 (node-a-id :not-null)
-		 (node-via-id :not-null)
-		 (node-b-id :not-null)
-		 (properties)]
-		(:foreign-key [node-a-id ] :references nodes [id] :on-delete :cascade)
-		(:foreign-key [node-b-id ] :references nodes [id] :on-delete :cascade)
-		(:foreign-key [node-via-id] :references nodes [id] :on-delete :cascade))))
+(require 'org-roam-db)
 
 
-(defun org-roam-he-insert-link (link)
+(defun org-roam-db-insert-he-link (link)
   "Insert rel-link data for LINK at current point into the Org-roam cache."
   (save-excursion
     (goto-char (org-element-property :begin link))
@@ -62,9 +51,9 @@
 	(-when-let* ((path (if (not option) path
 			     (substring path 0 (match-beginning 0))))
 		     ((a via b) (split-string path ":"))
-		     (source (org-roam-id-at-point))
-		     (source-idx (--find-index (equal source it)
-					       (list a via b))))
+		     ;; (source (org-roam-id-at-point))
+		     (source-idx (or 1 (--find-index (equal source it);; TODO source needed?
+					       (list a via b)))))
 	  ;; For Org-ref links, we need to split the path into the cite keys
    	  (org-roam-db-query
            [:insert :into hyper-edges
@@ -72,16 +61,34 @@
    	   (vector (point) source-idx a via b properties))
 	  t)))))
 
-(defun org-roam-he-sort-promote (nodes)
-  "Return sort function which displays NODES at top for `org-roam-node-read'."
-  (let ((ids (--map (org-roam-node-id it) nodes)))
-    (lambda (completion-a _)
-      (-contains-p ids (org-roam-node-id (cdr completion-a))))))
 
 (defvar org-roam-he-nodes
   '((node-a-id . "Node A")
     (node-via-id . "Relation")
     (node-b-id . "Node B")))
+
+;; Insert Hyper-Edge Schema
+(add-to-list 'org-roam-db--table-schemata
+	     '(hyper-edges
+	       ([(pos :not-null)
+		 ;;(source-idx :not-null) TODO useless?
+		 (node-a-id :not-null)
+		 (node-via-id :not-null)
+		 (node-b-id :not-null)
+		 (properties)]
+		(:foreign-key [node-a-id ] :references nodes [id] :on-delete :cascade)
+		(:foreign-key [node-b-id ] :references nodes [id] :on-delete :cascade)
+		(:foreign-key [node-via-id] :references nodes [id] :on-delete :cascade))))
+
+(advice-add 'org-roam-db-insert-link :before-until 'org-roam-db-insert-he-link)
+
+(require 'org-roam)
+
+(defun org-roam-he-sort-promote (nodes)
+  "Return sort function which displays NODES at top for `org-roam-node-read'."
+  (let ((ids (--map (org-roam-node-id it) nodes)))
+    (lambda (completion-a _)
+      (-contains-p ids (org-roam-node-id (cdr completion-a))))))
 
 
 (defun org-roam-he--prompt-node (he-node &optional must-match)
@@ -89,10 +96,12 @@
 If MUST-MATCH is non-nil the selected Node must exist.
 Return org-roam-node to of the selected node.
 If no node was selected return nil."
-  (let ((node (org-roam-node-read nil nil
-		      (org-roam-he-sort-promote (list (org-roam-node-at-point)))
-		      must-match
-		      (concat (cdr (assoc he-node org-roam-he-nodes)) ": "))))
+  (let* ((promote-nodes (when-let (node (and (derived-mode-p 'org-mode)
+					     (org-roam-node-at-point)))
+			  (list node)))
+	 (node (org-roam-node-read
+		nil nil (org-roam-he-sort-promote promote-nodes) must-match
+		(concat (cdr (assoc he-node org-roam-he-nodes)) ": "))))
     (when (org-roam-node-id node) node)))
 
 
@@ -133,7 +142,6 @@ Optionally a custom display function can be used with RENDERFN."
 			     (if (assoc 'node-b-id selected)
 				 (propertize node-b-text 'face 'shadow)
 			       node-b-text) ))))))
-	  
 	  (nodes (--map (cons (funcall render (-concat selected it)) it) collection))
 	  (node (completing-read "Node: " nodes nil t)))
     (cdr (assoc node nodes))))
@@ -161,7 +169,7 @@ The user is also prompted for queried edges using a `completing-read'."
 	 (collection (-map (lambda (e)
 			     (-zip-pair variable (--map (org-roam-node-from-id it) e)))
 			   ids)))
-    (org-roam-he--prompt-query selected collection)))
+    (when ids (org-roam-he--prompt-query selected collection))))
 
 
 (defun org-roam-he-find-oriented ()
@@ -171,21 +179,22 @@ User will be prompted for NODE-A, RELATION and NODE-B any one of which
 can be left empty to widen selection.  A Database Query will be issued
 using the selected nodes for narrowing.  User will be prompted with
 ramaining nodes."
+  (interactive)
   (let ((selection nil)
-	(variable nil))
+	(variable (--map (car it) org-roam-he-nodes)))
     (--each-while org-roam-he-nodes
 	(> 2 (length selection))
-      (if-let (node (org-roam-he--prompt-node (car it)))
-	  (push (cons (car it) node) selection)
-	(push (car it) variable)))
-    (let* ((nodes (--map (cdr it) (org-roam-he--query selection variable)))
-	   (-compare-fn (-on 'equal 'org-roam-node-id))
-	   (filter (lambda (node) (-contains-p nodes node)))
-	   (choice (org-roam-node-read nil filter nil t "visit: ")))
-      (org-roam-node-visit choice))))
+      (when-let (node (org-roam-he--prompt-node (car it)))
+	(push (cons (car it) node) selection)
+	(setq variable (delq (car it) variable))))
+    
+    (if-let* ((query (org-roam-he--query selection variable))
+	      (nodes (--map (cdr it) query))
+	      (filter (lambda (node) (-contains-p nodes node)))
+	      (choice (org-roam-node-read nil filter nil t "visit: ")))
+	(org-roam-node-visit choice)
+      (prin1 "Found 0 Hyperedges!"))))
 	  
-
-(advice-add 'org-roam-db-insert-link :before-until 'org-roam-db-insert-he-link)
 
 ;; TODO:
 (defun org-roam-he-follow (rel-link)

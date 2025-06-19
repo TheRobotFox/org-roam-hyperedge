@@ -47,18 +47,24 @@
       (let* ((path (org-element-property :path link))
 	     (option (and (string-match "::\\(.*\\)\\'" path)
 			  (match-string 1 path)))
-	     (properties (when option '(:search-option option))))
+	     )
 	(-when-let* ((path (if (not option) path
 			     (substring path 0 (match-beginning 0))))
 		     ((a via b) (split-string path ":"))
 		     ;; (source (org-roam-id-at-point))
-		     (source-idx (or 1 (--find-index (equal source it);; TODO source needed?
-					       (list a via b)))))
-	  ;; For Org-ref links, we need to split the path into the cite keys
-   	  (org-roam-db-query
-           [:insert :into hyper-edges
-   		    :values $v1]
-   	   (vector (point) a via b properties))
+		     ;;(source-idx (or 1 (--find-index (equal source it);; TODO source needed?
+			 ;;(list a via b))))
+			 )
+	  ;; check if nodes exist
+	  (org-roam-db-query
+           [:insert :into hyper-edges :values $v1]
+   	   (vector (point) a via b))
+	  ;; (let ((res (org-roam-db-query [:select id :from nodes :where (in id $v1)] (vector a via b))))
+	  ;; 	(if (/= 3 (length res))
+	  ;; 		(-let (((file name) (--map (funcall it (org-roam-node-at-point)) '(org-roam-node-file org-roam-node-title))))
+	  ;; 	  (display-warning :error (concat "Failed to insert Hyperedge at " file ":" name  "! Unknown Node Id: " (prin1-to-string (--filter (-contains-p res (cons it nil)) (list a via b))))))
+			  
+   	  ;; 	  ))
 	  t)))))
 
 
@@ -74,11 +80,9 @@
 		 ;;(source-idx :not-null) TODO useless?
 		 (node-a-id :not-null)
 		 (node-via-id :not-null)
-		 (node-b-id :not-null)
-		 (properties)]
-		(:foreign-key [node-a-id ] :references nodes [id] :on-delete :cascade)
-		(:foreign-key [node-b-id ] :references nodes [id] :on-delete :cascade)
-		(:foreign-key [node-via-id] :references nodes [id] :on-delete :cascade))))
+		 (node-b-id :not-null)]
+			
+			)))
 
 (advice-add 'org-roam-db-insert-link :before-until 'org-roam-db-insert-he-link)
 

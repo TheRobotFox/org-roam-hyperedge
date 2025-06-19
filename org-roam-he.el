@@ -58,7 +58,7 @@
    	  (org-roam-db-query
            [:insert :into hyper-edges
    		    :values $v1]
-   	   (vector (point) source-idx a via b properties))
+   	   (vector (point) a via b properties))
 	  t)))))
 
 
